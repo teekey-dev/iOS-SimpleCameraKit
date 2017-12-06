@@ -58,6 +58,7 @@ public class SimpleCamera : NSObject {
     var videoPreviewViewBounds: CGRect = CGRect.zero
     var position: AVCaptureDevice.Position = .back 
     private var flashMode: AVCaptureDevice.FlashMode = .off
+    private var torchMode: AVCaptureDevice.TorchMode = .off
     // Image Buffers
     var photoSampleBuffer : CMSampleBuffer?
     var previewPhotoSampleBuffer : CMSampleBuffer?
@@ -283,12 +284,40 @@ public class SimpleCamera : NSObject {
     }
     
     /**
-        Change the flash mode
+        Set the flash mode
      
      - parameter mode: `AVCaptureDevice.FlashMode` .auto, .on, .off are available
     */
     func setFlashMode(_ mode: AVCaptureDevice.FlashMode) {
         flashMode = mode
+    }
+    
+    /**
+        Set the torch mode if available.
+     
+     - parameter mode: `AVCaptureDevice.TorchMode` `.auto, .on, .off` are available
+     - parameter torchLevel: Brightness of torch. default is `AVCaptureDevice.maxAvailableTorchLevel`.
+     The difference too small to notice difference. Even very small value like 0.1 is still bright.
+     Set This value to 0.0 cannot make the torch off. 
+    */
+    func setTorchMode(_ mode: AVCaptureDevice.TorchMode, _ torchLevel: Float = AVCaptureDevice.maxAvailableTorchLevel) {
+        let captureDevice = getCurrentVideoInput().device
+        if captureDevice.isTorchAvailable {
+            do {
+                try captureDevice.lockForConfiguration()
+                switch mode{
+                case .on:
+                    try captureDevice.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
+                case .off:
+                    captureDevice.torchMode = .off
+                case .auto:
+                    captureDevice.torchMode = .auto
+                }
+                captureDevice.unlockForConfiguration()
+            } catch {
+                print("error occurred during set torch mode: \(error)")
+            }
+        }
     }
     
     private func getCurrentVideoInput() -> AVCaptureDeviceInput {
@@ -317,6 +346,11 @@ public class SimpleCamera : NSObject {
         // You need to override this method to process image before it is displayed.
         // Default behavior is nothing.
         return sourceImage
+    }
+    
+    private func flipFrontCameraImage(_ image: CIImage) -> CIImage {
+        let flipHorizonatllyTransform = CGAffineTransform(scaleX: 1, y: -1).concatenating(CGAffineTransform(translationX: 0, y: image.extent.height))
+        return image.transformed(by: flipHorizonatllyTransform)
     }
 }
 
@@ -378,7 +412,10 @@ extension SimpleCamera : AVCaptureVideoDataOutputSampleBufferDelegate {
             drawRect.size.height = drawRect.size.width / previewAspect;
         }
     
-        let processedImage = processPreviewImage(sourceImage: sourceImage)
+        var processedImage = processPreviewImage(sourceImage: sourceImage)
+        if position == .front {
+            processedImage = flipFrontCameraImage(processedImage)
+        }
         
         if usingNextFrameAsCapturedScreen {
             delegate?.simapleCameraCaptureScreenOutput(self, capturedScreen: processedImage)

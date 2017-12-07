@@ -26,8 +26,7 @@ class ViewController: UIViewController {
         camera.setPreview(to: self.cameraPreview)
         camera.delegate = self
         camera.start()
-        
-        camera.setTimer(5)
+    
     }
 
     @IBAction func buttonTapped(_ sender: Any) {

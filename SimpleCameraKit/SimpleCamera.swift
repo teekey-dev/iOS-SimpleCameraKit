@@ -528,6 +528,37 @@ public class SimpleCamera : NSObject {
         return gains
     }
     
+    func zoom(_ zoomFactor: CGFloat, with rate: CGFloat) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            var zoomFactor = zoomFactor
+            if #available(iOS 11.0, *) {
+                zoomFactor = max(captureDevice.minAvailableVideoZoomFactor, zoomFactor)
+                zoomFactor = min(captureDevice.maxAvailableVideoZoomFactor, zoomFactor)
+            } else {
+                zoomFactor = max(1.0, zoomFactor)
+                zoomFactor = min(captureDevice.activeFormat.videoMaxZoomFactor, zoomFactor)
+            }
+            
+            captureDevice.ramp(toVideoZoomFactor: zoomFactor, withRate: Float(rate))
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during zooming : \(error.localizedDescription)")
+        }
+    }
+    
+    func zoomDidCancel() {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            captureDevice.cancelVideoZoomRamp()
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during canceling zoom : \(error.localizedDescription)")
+        }
+    }
+    
     private func getCurrentVideoInput() -> AVCaptureDeviceInput {
         var currentVideoInput : AVCaptureDeviceInput!
         for input in captureSession.inputs {

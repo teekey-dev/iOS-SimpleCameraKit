@@ -225,10 +225,13 @@ public class SimpleCamera : NSObject {
         timer = Timer(fire: fireDate, interval: 0, repeats: false, block: { (timer) in
             self.capturePhoto()
             self.timerForCountDown.invalidate()
+            self.timerForCountDown = nil
         })
         timerForCountDown = Timer(fire: Date(), interval: 1, repeats: true, block: { (timer) in
-            self.delegate?.simpleCameraCountDownTimer(self, fireDate.timeIntervalSince(Date()))
+            self.delegate?.simpleCameraCountDownTimer(self, ceil(fireDate.timeIntervalSince(Date())))
         })
+        RunLoop.main.add(timer, forMode: .commonModes)
+        RunLoop.main.add(timerForCountDown, forMode: .commonModes)
     }
     
 //    var timerForMute : Timer!

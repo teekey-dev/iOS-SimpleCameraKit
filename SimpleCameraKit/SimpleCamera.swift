@@ -28,7 +28,7 @@ protocol SimpleCameraDelegate: class {
      
      - parameter capturedScreen: Captured Screen image in `CIImage` form.
      */
-    func simapleCameraCaptureScreenOutput(_ camera: SimpleCamera, capturedScreen: CIImage)
+    func simpleCameraCaptureScreenOutput(_ camera: SimpleCamera, capturedScreen: CIImage)
     /**
      Called when the still photo is ready. Invoked after `func capturePhoto()`
      
@@ -37,12 +37,21 @@ protocol SimpleCameraDelegate: class {
      - parameter photo: Captured still photo in Jpeg `Data` format.
      */
     func simpleCameraDidCapturePhoto(_ camera: SimpleCamera, photo: Data?)
+    /**
+     Called repeatedly after timer is set. Show remaining Time
+     
+     - parameter camera: `SimpleCamera` class you are using.
+     
+     - parameter remainingTime: Remaining time to fire capture timer.
+     */
+    func simpleCameraCountDownTimer(_ camera: SimpleCamera, _ remainingTime: TimeInterval)
 }
 
 // These delegate methods are optional. default behavior are none.
 extension SimpleCameraDelegate {
     public func simpleCameraDidChangeDeviceOrientation(_ camera: SimpleCamera, deviceOrientation: UIDeviceOrientation){}
-    public func simapleCameraCaptureScreenOutput(_ camera: SimpleCamera, capturedScreen: CIImage){}
+    public func simpleCameraCaptureScreenOutput(_ camera: SimpleCamera, capturedScreen: CIImage){}
+    public func simpleCameraCountDownTimer(_ camera: SimpleCamera, _ remainingTime: TimeInterval){}
 }
 
 public class SimpleCamera : NSObject {
@@ -59,6 +68,8 @@ public class SimpleCamera : NSObject {
     var position: AVCaptureDevice.Position = .back 
     private var flashMode: AVCaptureDevice.FlashMode = .off
     private var torchMode: AVCaptureDevice.TorchMode = .off
+    var timer: Timer!
+    var timerForCountDown: Timer!
     // Image Buffers
     var photoSampleBuffer : CMSampleBuffer?
     var previewPhotoSampleBuffer : CMSampleBuffer?
@@ -209,13 +220,26 @@ public class SimpleCamera : NSObject {
         ciContext = CIContext(eaglContext: eaglContext, options: [kCIContextWorkingColorSpace:NSNull()])
     }
     
+    func setTimer(_ time: TimeInterval) {
+        let fireDate = Date().addingTimeInterval(time)
+        timer = Timer(fire: fireDate, interval: 0, repeats: false, block: { (timer) in
+            self.capturePhoto()
+            self.timerForCountDown.invalidate()
+        })
+        timerForCountDown = Timer(fire: Date(), interval: 1, repeats: true, block: { (timer) in
+            self.delegate?.simpleCameraCountDownTimer(self, fireDate.timeIntervalSince(Date()))
+        })
+    }
+    
+//    var timerForMute : Timer!
+    
     /**
         Capture Still Photo.
         You can get the result image(Jpeg Data) in following delegate method.
      
         `func simpleCameraDidCapturePhoto(_ camera: SimpleCamera, photo: Data?)`
      */
-    func capturePhoto() {
+    @objc func capturePhoto() {
         DispatchQueue.global(qos: .default).async {
             let photoSettings = AVCapturePhotoSettings()
             photoSettings.isAutoStillImageStabilizationEnabled = true
@@ -230,9 +254,17 @@ public class SimpleCamera : NSObject {
                 photoSettings.flashMode = .off
             }
             
+//            // silent shutter for some countries
+//            self.timerForMute = Timer(timeInterval: 0.01, target: self, selector: #selector(self.muteShutterSound), userInfo: nil, repeats: true)
+//            RunLoop.main.add(self.timerForMute, forMode: RunLoopMode.commonModes)
+            
             self.photoOutput.capturePhoto(with: photoSettings, delegate: self)
         }
     }
+    
+//    @objc func muteShutterSound() {
+//        AudioServicesDisposeSystemSoundID(1108)
+//    }
     
     /**
         Capture Video Output.
@@ -298,7 +330,7 @@ public class SimpleCamera : NSObject {
      - parameter mode: `AVCaptureDevice.TorchMode` `.auto, .on, .off` are available
      - parameter torchLevel: Brightness of torch. default is `AVCaptureDevice.maxAvailableTorchLevel`.
      The difference too small to notice difference. Even very small value like 0.1 is still bright.
-     Set This value to 0.0 cannot make the torch off. 
+     Set This value to 0.0 cannot make the torch off. Maybe In some devices, it might work.
     */
     func setTorchMode(_ mode: AVCaptureDevice.TorchMode, _ torchLevel: Float = AVCaptureDevice.maxAvailableTorchLevel) {
         let captureDevice = getCurrentVideoInput().device
@@ -317,6 +349,47 @@ public class SimpleCamera : NSObject {
             } catch {
                 print("error occurred during set torch mode: \(error)")
             }
+        }
+    }
+    
+    func setFocusMode(_ mode: AVCaptureDevice.FocusMode){
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isFocusModeSupported(mode) {
+                captureDevice.focusMode = mode
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during set focus mode: \(error)")
+        }
+    }
+    
+    func setFocus(by point: CGPoint) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isFocusPointOfInterestSupported {
+                captureDevice.focusPointOfInterest = point
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during set focus by interesting point: \(error)")
+        }
+    }
+    
+    func setFocusLock(to lensPosition: Float) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isLockingFocusWithCustomLensPositionSupported {
+                captureDevice.setFocusModeLocked(lensPosition: lensPosition, completionHandler: { (time) in
+                    
+                })
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during set focus by interesting point: \(error)")
         }
     }
     
@@ -356,6 +429,8 @@ public class SimpleCamera : NSObject {
 
 extension SimpleCamera : AVCapturePhotoCaptureDelegate {
     public func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photoSampleBuffer: CMSampleBuffer?, previewPhoto previewPhotoSampleBuffer: CMSampleBuffer?, resolvedSettings: AVCaptureResolvedPhotoSettings, bracketSettings: AVCaptureBracketedStillImageSettings?, error: Error?) {
+//        // Invalidate timer for mute shutter
+//        self.timerForMute.invalidate()
         
         guard error == nil, let photoSampleBuffer = photoSampleBuffer else {
             print("Error capturing photo: \(error!.localizedDescription)")
@@ -418,7 +493,7 @@ extension SimpleCamera : AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         
         if usingNextFrameAsCapturedScreen {
-            delegate?.simapleCameraCaptureScreenOutput(self, capturedScreen: processedImage)
+            delegate?.simpleCameraCaptureScreenOutput(self, capturedScreen: processedImage)
             usingNextFrameAsCapturedScreen = false
         }
     

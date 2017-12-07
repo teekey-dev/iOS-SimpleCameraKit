@@ -26,6 +26,8 @@ class ViewController: UIViewController {
         camera.setPreview(to: self.cameraPreview)
         camera.delegate = self
         camera.start()
+        
+        camera.setTimer(5)
     }
 
     @IBAction func buttonTapped(_ sender: Any) {
@@ -46,7 +48,7 @@ extension ViewController: SimpleCameraDelegate {
         print("did change device orientation")
     }
     
-    func simapleCameraCaptureScreenOutput(_ camera: SimpleCamera, capturedScreen: CIImage) {
+    func simpleCameraCaptureScreenOutput(_ camera: SimpleCamera, capturedScreen: CIImage) {
         let capturedImage = capturedScreen.renderUIImage(camera.ciContext)
         UIImageWriteToSavedPhotosAlbum(capturedImage, nil, nil, nil)
     }
@@ -64,6 +66,10 @@ extension ViewController: SimpleCameraDelegate {
             print("Error! : \(error.localizedDescription))")
         }
         
+    }
+    
+    func simpleCameraCountDownTimer(_ camera: SimpleCamera, _ remainingTime: TimeInterval) {
+        print(remainingTime)
     }
 }
 

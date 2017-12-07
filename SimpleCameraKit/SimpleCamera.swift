@@ -379,6 +379,10 @@ public class SimpleCamera : NSObject {
     }
     
     func setFocusLock(to lensPosition: Float, completionHandler: ((CMTime) -> Void)?) {
+        // Fit lensPosition into available range
+        var lensPosition = max(0, lensPosition)
+        lensPosition = min(1, lensPosition)
+        
         let captureDevice = getCurrentVideoInput().device
         do {
             try captureDevice.lockForConfiguration()
@@ -420,6 +424,10 @@ public class SimpleCamera : NSObject {
     func setExposureTargetBias(to bias: Float, completionHandler: ((CMTime) -> Void)?) {
         let captureDevice = getCurrentVideoInput().device
         do {
+            // fit exposure target bias into available range
+            var bias = max(captureDevice.minExposureTargetBias, bias)
+            bias = min(captureDevice.maxExposureTargetBias, bias)
+            
             try captureDevice.lockForConfiguration()
             captureDevice.setExposureTargetBias(bias, completionHandler: completionHandler)
             captureDevice.unlockForConfiguration()
@@ -431,6 +439,12 @@ public class SimpleCamera : NSObject {
     func setExposure(duration: CMTime, iso: Float, completionHandler: ((CMTime) -> Void)?) {
         let captureDevice = getCurrentVideoInput().device
         do {
+            // fit duration and iso into available range
+            var duration = max(captureDevice.activeVideoMinFrameDuration, duration)
+            duration = min(captureDevice.activeVideoMaxFrameDuration, duration)
+            var iso = max(captureDevice.activeFormat.minISO, iso)
+            iso = min(captureDevice.activeFormat.maxISO, iso)
+            
             try captureDevice.lockForConfiguration()
             captureDevice.setExposureModeCustom(duration: duration, iso: iso, completionHandler: completionHandler)
             captureDevice.unlockForConfiguration()
@@ -458,7 +472,8 @@ public class SimpleCamera : NSObject {
             try captureDevice.lockForConfiguration()
             if captureDevice.isLockingWhiteBalanceWithCustomDeviceGainsSupported {
                 let temperatureAndTint = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(temperature: temperature, tint: tint)
-                let whiteBalanceGains = captureDevice.deviceWhiteBalanceGains(for: temperatureAndTint)
+                var whiteBalanceGains = captureDevice.deviceWhiteBalanceGains(for: temperatureAndTint)
+                whiteBalanceGains = cropGainValuesToFitIntoAvailableRange(captureDevice: captureDevice, gains: whiteBalanceGains)
                 captureDevice.setWhiteBalanceModeLocked(with: whiteBalanceGains, completionHandler: completionHandler)
             }
             captureDevice.unlockForConfiguration()
@@ -473,7 +488,8 @@ public class SimpleCamera : NSObject {
             try captureDevice.lockForConfiguration()
             if captureDevice.isLockingWhiteBalanceWithCustomDeviceGainsSupported {
                 let chromaticity = AVCaptureDevice.WhiteBalanceChromaticityValues(x: Float(chromaticityPoint.x), y: Float(chromaticityPoint.y))
-                let whiteBalanceGains = captureDevice.deviceWhiteBalanceGains(for: chromaticity)
+                var whiteBalanceGains = captureDevice.deviceWhiteBalanceGains(for: chromaticity)
+                whiteBalanceGains = cropGainValuesToFitIntoAvailableRange(captureDevice: captureDevice, gains: whiteBalanceGains)
                 captureDevice.setWhiteBalanceModeLocked(with: whiteBalanceGains, completionHandler: completionHandler)
             }
             captureDevice.unlockForConfiguration()
@@ -487,12 +503,26 @@ public class SimpleCamera : NSObject {
         do {
             try captureDevice.lockForConfiguration()
             if captureDevice.isLockingWhiteBalanceWithCustomDeviceGainsSupported {
+                let gains = cropGainValuesToFitIntoAvailableRange(captureDevice: captureDevice, gains: gains)
                 captureDevice.setWhiteBalanceModeLocked(with: gains, completionHandler: completionHandler)
             }
             captureDevice.unlockForConfiguration()
         } catch {
             print("error occurred during setting white balance with gains: \(error.localizedDescription)")
         }
+    }
+    
+    private func cropGainValuesToFitIntoAvailableRange(captureDevice: AVCaptureDevice , gains: AVCaptureDevice.WhiteBalanceGains) -> AVCaptureDevice.WhiteBalanceGains {
+        var gains = gains
+        gains.redGain = max(1, gains.redGain)
+        gains.greenGain = max(1, gains.greenGain)
+        gains.blueGain = max(1, gains.blueGain)
+        
+        gains.redGain = min(captureDevice.maxWhiteBalanceGain, gains.redGain)
+        gains.greenGain = min(captureDevice.maxWhiteBalanceGain, gains.greenGain)
+        gains.blueGain = min(captureDevice.maxWhiteBalanceGain, gains.blueGain)
+        
+        return gains
     }
     
     private func getCurrentVideoInput() -> AVCaptureDeviceInput {

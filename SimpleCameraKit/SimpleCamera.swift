@@ -347,7 +347,7 @@ public class SimpleCamera : NSObject {
                 }
                 captureDevice.unlockForConfiguration()
             } catch {
-                print("error occurred during set torch mode: \(error)")
+                print("error occurred during setting torch mode: \(error.localizedDescription)")
             }
         }
     }
@@ -361,7 +361,7 @@ public class SimpleCamera : NSObject {
             }
             captureDevice.unlockForConfiguration()
         } catch {
-            print("error occurred during set focus mode: \(error)")
+            print("error occurred during setting focus mode: \(error.localizedDescription)")
         }
     }
     
@@ -374,7 +374,7 @@ public class SimpleCamera : NSObject {
             }
             captureDevice.unlockForConfiguration()
         } catch {
-            print("error occurred during set focus by interesting point: \(error)")
+            print("error occurred during setting focus by interesting point: \(error.localizedDescription)")
         }
     }
     
@@ -387,7 +387,7 @@ public class SimpleCamera : NSObject {
             }
             captureDevice.unlockForConfiguration()
         } catch {
-            print("error occurred during set focus by interesting point: \(error)")
+            print("error occurred during locking focus: \(error.localizedDescription)")
         }
     }
     
@@ -400,7 +400,7 @@ public class SimpleCamera : NSObject {
             }
             captureDevice.unlockForConfiguration()
         } catch {
-            print("error occurred during set focus mode: \(error)")
+            print("error occurred during setting exposure mode: \(error.localizedDescription)")
         }
     }
     
@@ -413,7 +413,7 @@ public class SimpleCamera : NSObject {
             }
             captureDevice.unlockForConfiguration()
         } catch {
-            print("error occurred during set focus by interesting point: \(error)")
+            print("error occurred during setting exposure by interesting point: \(error.localizedDescription)")
         }
     }
     
@@ -424,7 +424,7 @@ public class SimpleCamera : NSObject {
             captureDevice.setExposureTargetBias(bias, completionHandler: completionHandler)
             captureDevice.unlockForConfiguration()
         } catch {
-            print("error occurred during set focus by interesting point: \(error)")
+            print("error occurred during setting exposure target bias: \(error.localizedDescription)")
         }
     }
     
@@ -435,7 +435,63 @@ public class SimpleCamera : NSObject {
             captureDevice.setExposureModeCustom(duration: duration, iso: iso, completionHandler: completionHandler)
             captureDevice.unlockForConfiguration()
         } catch {
-            print("error occurred during set focus by interesting point: \(error)")
+            print("error occurred during set custom exposure: \(error.localizedDescription)")
+        }
+    }
+    
+    func setWhiteBalanceMode(_ mode: AVCaptureDevice.WhiteBalanceMode) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isWhiteBalanceModeSupported(mode) {
+                captureDevice.whiteBalanceMode = mode
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during setting white balance mode: \(error.localizedDescription)")
+        }
+    }
+    
+    func setWhiteBalance(temperature: Float, tint: Float, completionHandler: ((CMTime) -> Void)?) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isLockingWhiteBalanceWithCustomDeviceGainsSupported {
+                let temperatureAndTint = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(temperature: temperature, tint: tint)
+                let whiteBalanceGains = captureDevice.deviceWhiteBalanceGains(for: temperatureAndTint)
+                captureDevice.setWhiteBalanceModeLocked(with: whiteBalanceGains, completionHandler: completionHandler)
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during setting white balance with temperature value and tint value: \(error.localizedDescription)")
+        }
+    }
+    
+    func setWhiteBalance(chromaticityPoint: CGPoint, completionHandler: ((CMTime) -> Void)?) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isLockingWhiteBalanceWithCustomDeviceGainsSupported {
+                let chromaticity = AVCaptureDevice.WhiteBalanceChromaticityValues(x: Float(chromaticityPoint.x), y: Float(chromaticityPoint.y))
+                let whiteBalanceGains = captureDevice.deviceWhiteBalanceGains(for: chromaticity)
+                captureDevice.setWhiteBalanceModeLocked(with: whiteBalanceGains, completionHandler: completionHandler)
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during setting white balance with chromaticity value: \(error.localizedDescription)")
+        }
+    }
+    
+    func setWhiteBalance(gains: AVCaptureDevice.WhiteBalanceGains, completionHandler: ((CMTime) -> Void)?) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isLockingWhiteBalanceWithCustomDeviceGainsSupported {
+                captureDevice.setWhiteBalanceModeLocked(with: gains, completionHandler: completionHandler)
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during setting white balance with gains: \(error.localizedDescription)")
         }
     }
     

@@ -378,15 +378,61 @@ public class SimpleCamera : NSObject {
         }
     }
     
-    func setFocusLock(to lensPosition: Float) {
+    func setFocusLock(to lensPosition: Float, completionHandler: ((CMTime) -> Void)?) {
         let captureDevice = getCurrentVideoInput().device
         do {
             try captureDevice.lockForConfiguration()
             if captureDevice.isLockingFocusWithCustomLensPositionSupported {
-                captureDevice.setFocusModeLocked(lensPosition: lensPosition, completionHandler: { (time) in
-                    
-                })
+                captureDevice.setFocusModeLocked(lensPosition: lensPosition, completionHandler: completionHandler)
             }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during set focus by interesting point: \(error)")
+        }
+    }
+    
+    func setExposureMode(_ mode: AVCaptureDevice.ExposureMode) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isExposureModeSupported(mode) {
+                captureDevice.exposureMode = mode
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during set focus mode: \(error)")
+        }
+    }
+    
+    func setExposure(by point: CGPoint) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            if captureDevice.isExposurePointOfInterestSupported {
+                captureDevice.exposurePointOfInterest = point
+            }
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during set focus by interesting point: \(error)")
+        }
+    }
+    
+    func setExposureTargetBias(to bias: Float, completionHandler: ((CMTime) -> Void)?) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            captureDevice.setExposureTargetBias(bias, completionHandler: completionHandler)
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("error occurred during set focus by interesting point: \(error)")
+        }
+    }
+    
+    func setExposure(duration: CMTime, iso: Float, completionHandler: ((CMTime) -> Void)?) {
+        let captureDevice = getCurrentVideoInput().device
+        do {
+            try captureDevice.lockForConfiguration()
+            captureDevice.setExposureModeCustom(duration: duration, iso: iso, completionHandler: completionHandler)
             captureDevice.unlockForConfiguration()
         } catch {
             print("error occurred during set focus by interesting point: \(error)")
